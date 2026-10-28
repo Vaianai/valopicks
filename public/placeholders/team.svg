@@ -1,0 +1,5 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Team placeholder">
+  <rect width="48" height="48" rx="10" fill="#27313d"/>
+  <path d="M24 9L35 14V22C35 29.2 30.8 35.8 24 39C17.2 35.8 13 29.2 13 22V14L24 9Z" fill="#ff4655"/>
+  <path d="M24 16L29 18.4V22.4C29 26.3 26.9 29.9 24 31.4C21.1 29.9 19 26.3 19 22.4V18.4L24 16Z" fill="#ece8e1"/>
+</svg>

@@ -1,0 +1,326 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+}
+
+enum LeagueType {
+  PICKEMS
+  FANTASY
+}
+
+enum FantasyTier {
+  T1
+  T2
+}
+
+enum PredictionType {
+  MATCH
+  BRACKET
+  CHAMPION
+}
+
+enum LeagueScope {
+  REGIONAL
+  GLOBAL
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+enum CommunityTournamentType {
+  FANTASY
+  BRACKET
+  PICKEM
+}
+
+model User {
+  id                             String                      @id @default(cuid())
+  name                           String?
+  email                          String?                     @unique
+  emailVerified                  DateTime?
+  image                          String?
+  discordId                      String?                     @unique
+  createdAt                      DateTime                    @default(now())
+  updatedAt                      DateTime                    @updatedAt
+  accounts                       Account[]
+  sessions                       Session[]
+  predictions                    Prediction[]
+  fantasyTeams                   FantasyTeam[]
+  leaguesOwned                   League[]                    @relation("LeagueOwner")
+  leagueMemberships              LeagueMember[]
+  sentFriendRequests             Friendship[]                @relation("FriendshipRequester")
+  receivedFriendRequests         Friendship[]                @relation("FriendshipAddressee")
+  communityTournamentsOwned      CommunityTournament[]       @relation("TournamentOwner")
+  communityTournamentMemberships CommunityTournamentMember[]
+  activityEvents                 ActivityEvent[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model VlrEvent {
+  id        String   @id @default(cuid())
+  vlrId     String   @unique
+  name      String
+  slug      String   @unique
+  tier      String?
+  region    String?
+  startDate DateTime
+  endDate   DateTime
+  featured  Boolean  @default(false)
+  leagues   League[]
+}
+
+model Team {
+  id               String         @id @default(cuid())
+  name             String         @unique
+  shortName        String         @unique
+  logoUrl          String?
+  vlrId            String?
+  tier             String?
+  region           String?
+  ranking          Int            @default(999)
+  winRate          Float          @default(0)
+  createdAt        DateTime       @default(now())
+  players          Player[]
+  homeMatches      Match[]        @relation("TeamOne")
+  awayMatches      Match[]        @relation("TeamTwo")
+  winnerMatches    Match[]        @relation("MatchWinner")
+  playerStats      FantasyScore[]
+  predictionsAsPick Prediction[]  @relation("PickedWinner")
+}
+
+model Player {
+  id            String          @id @default(cuid())
+  handle        String          @unique
+  fullName      String          @default("")
+  role          String          @default("Flex")
+  photoUrl      String?
+  vlrId         String?
+  price         Int             @default(10000)
+  fantasyPrice  Int             @default(10000)
+  teamId        String
+  team          Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  fantasyScores FantasyScore[]
+  rosterSlots   FantasyRoster[]
+  createdAt     DateTime        @default(now())
+}
+
+model Match {
+  id                 String         @id @default(cuid())
+  event              String
+  startTime          DateTime
+  status             MatchStatus    @default(SCHEDULED)
+  bestOf             Int            @default(3)
+  mapPool            String[]
+  team1Id            String
+  team2Id            String
+  winnerId           String?
+  team1Score         Int?
+  team2Score         Int?
+  communityTeam1Pick Float          @default(50)
+  communityTeam2Pick Float          @default(50)
+  createdAt          DateTime       @default(now())
+  team1              Team           @relation("TeamOne", fields: [team1Id], references: [id])
+  team2              Team           @relation("TeamTwo", fields: [team2Id], references: [id])
+  winner             Team?          @relation("MatchWinner", fields: [winnerId], references: [id])
+  predictions        Prediction[]
+  fantasyScores      FantasyScore[]
+}
+
+model League {
+  id               String         @id @default(cuid())
+  name             String
+  type             LeagueType
+  fantasyTier      FantasyTier?
+  scope            LeagueScope    @default(GLOBAL)
+  allowedRegions   String[]       @default([])
+  isPrivate        Boolean        @default(false)
+  inviteCode       String?        @unique
+  ownerId          String
+  vlrEventId       String?
+  prizeDescription String?
+  maxMembers       Int            @default(20)
+  createdAt        DateTime       @default(now())
+  owner            User           @relation("LeagueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  vlrEvent         VlrEvent?      @relation(fields: [vlrEventId], references: [id], onDelete: SetNull)
+  members          LeagueMember[]
+  predictions      Prediction[]
+  fantasyTeams     FantasyTeam[]
+}
+
+model LeagueMember {
+  id       String   @id @default(cuid())
+  leagueId String
+  userId   String
+  joinedAt DateTime @default(now())
+  league   League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, userId])
+}
+
+model Prediction {
+  id             String         @id @default(cuid())
+  userId         String
+  leagueId       String?
+  matchId        String?
+  predictionType PredictionType @default(MATCH)
+  pickedWinnerId String?
+  predictedScore String?
+  bracketData    Json?
+  pointsAwarded  Int            @default(0)
+  lockedAt       DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  league         League?        @relation(fields: [leagueId], references: [id], onDelete: SetNull)
+  match          Match?         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  pickedWinner   Team?          @relation("PickedWinner", fields: [pickedWinnerId], references: [id], onDelete: SetNull)
+}
+
+model FantasyTeam {
+  id           String          @id @default(cuid())
+  name         String
+  userId       String
+  leagueId     String?
+  budgetCap    Int             @default(100000)
+  budgetUsed   Int             @default(0)
+  totalPoints  Float           @default(0)
+  weeklyPoints Float           @default(0)
+  week         Int             @default(1)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  league       League?         @relation(fields: [leagueId], references: [id], onDelete: SetNull)
+  roster       FantasyRoster[]
+}
+
+model FantasyRoster {
+  id            String      @id @default(cuid())
+  fantasyTeamId String
+  playerId      String
+  fantasyTeam   FantasyTeam @relation(fields: [fantasyTeamId], references: [id], onDelete: Cascade)
+  player        Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([fantasyTeamId, playerId])
+}
+
+model FantasyScore {
+  id          String   @id @default(cuid())
+  matchId     String
+  playerId    String
+  teamId      String
+  kills       Int      @default(0)
+  deaths      Int      @default(0)
+  assists     Int      @default(0)
+  firstBloods Int      @default(0)
+  clutches    Int      @default(0)
+  aces        Int      @default(0)
+  acs         Float    @default(0)
+  matchWin    Boolean  @default(false)
+  fantasyPts  Float    @default(0)
+  createdAt   DateTime @default(now())
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, playerId])
+}
+
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  requester   User             @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User             @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+}
+
+model CommunityTournament {
+  id               String                      @id @default(cuid())
+  name             String
+  ownerId          String
+  type             CommunityTournamentType     @default(FANTASY)
+  isPublic         Boolean                     @default(true)
+  inviteCode       String?                     @unique
+  maxParticipants  Int                         @default(32)
+  prizeDescription String?
+  rules            Json?                       @default("{}")
+  startsAt         DateTime?
+  endsAt           DateTime?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  owner            User                        @relation("TournamentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members          CommunityTournamentMember[]
+}
+
+model CommunityTournamentMember {
+  id           String              @id @default(cuid())
+  tournamentId String
+  userId       String
+  rank         Int?
+  score        Float               @default(0)
+  joinedAt     DateTime            @default(now())
+  tournament   CommunityTournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, userId])
+}
+
+model ActivityEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  payload   Json     @default("{}")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

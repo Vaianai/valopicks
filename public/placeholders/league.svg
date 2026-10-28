@@ -1,0 +1,5 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="League placeholder">
+  <rect width="48" height="48" rx="10" fill="#27313d"/>
+  <circle cx="24" cy="24" r="12" fill="#ff4655"/>
+  <path d="M24 15L27 21L34 22L29 27L30 34L24 31L18 34L19 27L14 22L21 21L24 15Z" fill="#ece8e1"/>
+</svg>
